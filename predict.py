@@ -1,25 +1,24 @@
 # Prediction interface for Cog ⚙️
 # https://github.com/replicate/cog/blob/main/docs/python.md
 
-from cog import BasePredictor, Input, Path
-
-
+import cog
+from cog import BasePredictor, Input, Path, File
 
 
 import sys
+import tempfile
 sys.path.append(".")
 sys.path.append("./CLIP")
 sys.path.append('./taming-transformers')
 sys.path.append('./k-diffusion')
 
-
-
-
-import argparse, gc, json, os, random, sys, time, glob, requests
+import argparse, gc, json, os, random, sys, time, glob, requests, subprocess
 import torch
 import torch.nn as nn
 import numpy as np
 import PIL
+from PIL import Image
+from base64 import b64encode
 from contextlib import contextmanager, nullcontext
 from einops import rearrange, repeat
 from itertools import islice
@@ -34,11 +33,7 @@ from ldm.models.diffusion.plms import PLMSSampler
 from k_diffusion.sampling import sample_lms
 from k_diffusion.external import CompVisDenoiser
 
-
-device = torch.device("cpu")
-
 device = torch.device("cuda") if torch.cuda.is_available() else torch.device("cpu")
-
 
 def chunk(it, size):
     it = iter(it)
@@ -119,7 +114,7 @@ def load_img(path, w, h):
 
 
 
-# TODO: Determine if this code goes in setup or predict
+# # TODO: Determine if this code goes in setup or predict
 opt = config()
 config = OmegaConf.load(f"{opt.config}")
 model = load_model_from_config(config, f"{opt.ckpt}")
@@ -245,12 +240,6 @@ def generate(opt):
                             Image.fromarray(x_sample.astype(np.uint8)).save(filepath)
                             sample_idx += 1
     return images, c, z
-
-
-
-
-
-
 
 
 
@@ -501,12 +490,11 @@ for i in range(len(prompts_c_s)-1):
 
 # TODO: Move this to predict
 
-fps = 12#@param {type:"number"}
+fps = 12 #@param {type:"number"}
 
 filepath = os.path.join(opt.outdir, f"{batch_name}({batch_idx})_%04d.png")
 
-import subprocess
-from base64 import b64encode
+
 
 image_path = os.path.join(opt.outdir, f"{batch_name}({batch_idx})_%04d.png")
 mp4_path = os.path.join(opt.outdir, f"{batch_name}({batch_idx}).mp4")
@@ -556,9 +544,39 @@ class Predictor(BasePredictor):
         # scale: float = Input(
         #     description="Factor to scale image by", ge=0, le=10, default=1.5
         # ),
-    ) -> str:
+    ) -> Path:
         """Run a single prediction on the model"""
+        # Define the model's output location
+
+        # Run the model, outputting the images to a tmp location
+
+        # Return the output path
+
         # processed_input = preprocess(image)
         # output = self.model(processed_image, scale)
         # return postprocess(output)
-        return "prediction"
+        video_path = "outputs/20220828_Interpolate_Test/20220828_Interpolate_Test(18).mp4"
+
+        tmp = tempfile.mkdtemp()
+        print("tmp: ", tmp)
+        output_path = cog.Path(tmp) / "upscaled.png"
+        print(output_path)
+        # upscaled_image.save(output_path)
+        image_path = "outputs/20220828_Interpolate_Test/20220828_Interpolate_Test(19)_0002.png"
+        new_image = Image.open(image_path)
+        new_image.save(output_path)
+
+        return Path(video_path)
+
+
+        # return Path(output_path)
+        return output_path
+        return cog.Path(str(output_path))
+
+        # return File(open("outputs/20220828_Interpolate_Test/20220828_Interpolate_Test(18).mp4", 'r'))
+        # return File("outputs/20220828_Interpolate_Test/20220828_Interpolate_Test(18).mp4")
+        # return "prediction"
+
+
+# Finding documentation for how to return File's needs to be easier
+# Documentation here needs to be fixed (no object named 'output', for instance: https://github.com/replicate/cog/blob/main/docs/python.md#path)
